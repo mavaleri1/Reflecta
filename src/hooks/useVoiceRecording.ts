@@ -24,9 +24,24 @@ export function useVoiceRecording() {
 
   // Check browser support
   const isSupported = useCallback(() => {
+    // Check if we're on HTTPS or localhost
+    const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+    
+    // Check for Speech Recognition support
+    const hasSpeechRecognition = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+    
+    console.log('Voice recording support check:', {
+      isSecure,
+      hasSpeechRecognition,
+      protocol: window.location.protocol,
+      hostname: window.location.hostname,
+      userAgent: navigator.userAgent
+    });
+    
     return (
+      isSecure &&
       'MediaRecorder' in window &&
-      'webkitSpeechRecognition' in window || 'SpeechRecognition' in window
+      hasSpeechRecognition
     );
   }, []);
 
@@ -85,6 +100,10 @@ export function useVoiceRecording() {
       recognition.interimResults = true;
       recognition.lang = 'en-US'; // English language
       recognition.maxAlternatives = 1;
+      
+      // Add timeout for Vercel deployments
+      recognition.timeout = 10000; // 10 seconds
+      recognition.serviceURI = undefined; // Use default service
 
       recognitionRef.current = recognition;
 
@@ -111,9 +130,45 @@ export function useVoiceRecording() {
 
       recognition.onerror = (event) => {
         console.error('Speech recognition error:', event.error);
+        console.error('Error details:', {
+          error: event.error,
+          type: event.type,
+          timeStamp: event.timeStamp,
+          isTrusted: event.isTrusted,
+          location: window.location.href,
+          userAgent: navigator.userAgent
+        });
+        
+        let errorMessage = 'Speech recognition error';
+        switch (event.error) {
+          case 'network':
+            errorMessage = 'Network error. This might be a Vercel deployment issue. Please try refreshing the page or use text input instead.';
+            break;
+          case 'not-allowed':
+            errorMessage = 'Microphone access denied. Please allow microphone usage in your browser settings.';
+            break;
+          case 'no-speech':
+            errorMessage = 'No speech detected. Try speaking louder or closer to the microphone.';
+            break;
+          case 'audio-capture':
+            errorMessage = 'Failed to access microphone. Please check your microphone permissions.';
+            break;
+          case 'service-not-allowed':
+            errorMessage = 'Speech recognition service is unavailable. This might be a browser or network issue.';
+            break;
+          case 'aborted':
+            errorMessage = 'Speech recognition was aborted. Please try again.';
+            break;
+          case 'language-not-supported':
+            errorMessage = 'Selected language is not supported. Please try English.';
+            break;
+          default:
+            errorMessage = `Speech recognition error: ${event.error}. Please try using text input instead.`;
+        }
+        
         setState(prev => ({
           ...prev,
-          error: `Speech recognition error: ${event.error}`
+          error: errorMessage
         }));
       };
 
@@ -126,7 +181,13 @@ export function useVoiceRecording() {
 
       // Start recording and recognition
       mediaRecorder.start(1000); // Record in 1-second chunks
-      recognition.start();
+      
+      try {
+        recognition.start();
+      } catch (error) {
+        console.warn('Failed to start speech recognition, continuing with audio recording only:', error);
+        // Continue with audio recording even if speech recognition fails
+      }
 
       // Start timer
       timerRef.current = setInterval(() => {

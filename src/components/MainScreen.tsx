@@ -351,6 +351,18 @@ export function MainScreen({ onNavigate, onAiResponse, onUserMessage }: MainScre
                 </div>
               )}
 
+              {/* Voice Error Display */}
+              {voiceError && (
+                <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
+                  <p className="text-red-200 text-sm">
+                    {voiceError}
+                  </p>
+                  <p className="text-red-300 text-xs mt-1">
+                    You can still use text input to chat with AI.
+                  </p>
+                </div>
+              )}
+
               {/* Icon Bar - commented out
               <div className="flex items-center space-x-4 pt-2">
                 <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
@@ -382,13 +394,13 @@ export function MainScreen({ onNavigate, onAiResponse, onUserMessage }: MainScre
                           ? 'bg-yellow-500 text-white'
                           : 'bg-white text-[#1C2526] hover:bg-white/90'
                       } disabled:opacity-50`}
-                        title={
-                          isRecording 
-                            ? `Recording... ${formatDuration(duration)}` 
-                            : isProcessingVoice || isProcessing
-                            ? 'Processing...'
-                            : 'Start voice recording'
-                        }
+                      title={
+                        isRecording 
+                          ? `Recording... ${formatDuration(duration)}` 
+                          : isProcessingVoice || isProcessing
+                          ? 'Processing...'
+                          : 'Start voice recording'
+                      }
                     >
                       {isRecording ? (
                         <MicOff className="w-5 h-5 mx-auto" />
@@ -401,7 +413,7 @@ export function MainScreen({ onNavigate, onAiResponse, onUserMessage }: MainScre
                   ) : (
                     <div
                       className="w-12 h-12 rounded-full bg-white/20 text-white/50 flex items-center justify-center cursor-not-allowed"
-                      title="Voice recording is not supported in your browser"
+                      title="Voice recording requires HTTPS connection"
                     >
                       <Mic className="w-5 h-5 mx-auto" />
                     </div>

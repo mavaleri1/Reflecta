@@ -481,7 +481,7 @@ export function DialogueScreen({ onBack, aiResponse, userMessage }: DialogueScre
                 ) : (
                   <div
                     className="w-10 h-10 rounded-full bg-white/20 text-white/50 flex items-center justify-center cursor-not-allowed"
-                    title="Recording voice is not supported in your browser"
+                    title="Voice recording requires HTTPS connection"
                   >
                     <Mic className="w-4 h-4 mx-auto" />
                   </div>
