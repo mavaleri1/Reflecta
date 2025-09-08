@@ -2,11 +2,11 @@ import React, { useState } from "react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Textarea } from "./ui/textarea";
-import { Mic, Paperclip, Send, StopCircle, Brain, Loader2, RefreshCw } from "lucide-react";
-import { VoiceRecorder } from './VoiceRecorder';
+import { Mic, Paperclip, Send, StopCircle, Brain, Loader2, RefreshCw, MicOff } from "lucide-react";
 import { useAuth } from '../hooks/useAuth';
 import { useEntries } from '../hooks/useEntries';
 import { useAI } from '../hooks/useAI';
+import { useVoiceRecording } from '../hooks/useVoiceRecording';
 
 const cn = (...classes: (string | undefined | null | false)[]) => classes.filter(Boolean).join(" ");
 
@@ -18,17 +18,31 @@ interface MainScreenProps {
 
 export function MainScreen({ onNavigate, onAiResponse, onUserMessage }: MainScreenProps) {
   const [message, setMessage] = useState("");
-  const [isRecording, setIsRecording] = useState(false);
   const [mood, setMood] = useState(3); // Default mood value
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState("");
+  const [isProcessingVoice, setIsProcessingVoice] = useState(false);
 
   const { user } = useAuth();
   const { createEntry } = useEntries(user?.id || '');
   const { analyzeText, loading: aiLoading, error: aiError } = useAI();
+  
+  // Voice recording hook
+  const {
+    isRecording,
+    isProcessing,
+    error: voiceError,
+    transcript,
+    duration,
+    isSupported: isVoiceSupported,
+    startRecording,
+    stopRecording,
+    clearTranscript,
+    formatDuration
+  } = useVoiceRecording();
 
-  // Массив приветственных вопросов
+  // Array of welcome questions
   const dailyQuestions: string[] = [
     "How are you feeling today?",
     "Evening vibe check—how's your mood?",
@@ -52,20 +66,20 @@ export function MainScreen({ onNavigate, onAiResponse, onUserMessage }: MainScre
     "What made you smile today?"
   ];
 
-  // Случайный выбор вопроса
+  // Random question selection
   const getRandomQuestion = () => {
     const randomIndex = Math.floor(Math.random() * dailyQuestions.length);
     return dailyQuestions[randomIndex];
   };
 
-  // Инициализация случайного вопроса при загрузке компонента
+  // Initialize random question when component loads
   React.useEffect(() => {
     setCurrentQuestion(getRandomQuestion());
   }, []);
 
   const todayQuestion = currentQuestion;
 
-  // Функция для обновления вопроса
+  // Function to update question
   const handleRefreshQuestion = () => {
     setCurrentQuestion(getRandomQuestion());
   };
@@ -128,19 +142,83 @@ export function MainScreen({ onNavigate, onAiResponse, onUserMessage }: MainScre
     }
   };
 
-  const handleStartRecording = () => {
-    console.log("Started recording"); // TODO: Implement real recording (Web Audio API)
-  };
+  // Voice recording handling
+  const handleVoiceRecording = async () => {
+    if (!isVoiceSupported) {
+      console.warn('Voice recording not supported');
+      return;
+    }
 
-  const handleStopRecording = (duration: number) => {
-    console.log(`Stopped recording after ${duration} seconds`);
-    // TODO: Send audio to AI for transcription, e.g. through API
-    onNavigate("dialogue"); // Navigate to dialogue after recording
-  };
-
-  const toggleRecording = () => {
-    console.log("Toggling recording, new state:", !isRecording);
-    setIsRecording(!isRecording);
+    if (isRecording) {
+      // Stop recording
+      stopRecording();
+      setIsProcessingVoice(true);
+      
+      // Wait for processing and automatically send message
+      setTimeout(async () => {
+        if (transcript && user) {
+          try {
+            console.log('🤖 MainScreen: Starting AI analysis for voice message...');
+            // Analyze text with AI
+            const aiResult = await analyzeText(transcript);
+            
+            if (aiResult) {
+              console.log('✅ MainScreen: AI analysis successful for voice:', aiResult);
+              // Use mood determined by AI
+              const aiMood = aiResult.moodAnalysis.mood;
+              const aiTopics = aiResult.moodAnalysis.topics;
+              
+              console.log('💾 MainScreen: Saving voice entry with AI analysis:', { aiMood, aiTopics });
+              // Save entry in Supabase with AI analysis
+              await createEntry(transcript, aiMood, aiTopics);
+              
+              // Save AI response for display in dialogue
+              setAiResponse(aiResult.response);
+              onAiResponse?.(aiResult.response);
+              onUserMessage?.(transcript);
+              
+              clearTranscript();
+              onNavigate("dialogue");
+            } else {
+              console.log('⚠️ MainScreen: AI analysis failed for voice, using fallback');
+              // Fallback: save with neutral mood
+              await createEntry(transcript, mood, []);
+              
+              // Fallback AI response
+              const fallbackResponse = "I'm here to listen whenever you're ready to share. Even a simple message can be a step toward expressing yourself, and I'm here to support you.";
+              setAiResponse(fallbackResponse);
+              onAiResponse?.(fallbackResponse);
+              onUserMessage?.(transcript);
+              
+              clearTranscript();
+              onNavigate("dialogue");
+            }
+          } catch (error) {
+            console.error('❌ MainScreen: Error processing voice message:', error);
+            // Fallback: save without AI analysis
+            await createEntry(transcript, mood, []);
+            
+            // Fallback AI response
+            const fallbackResponse = "I'm here to listen whenever you're ready to share. Even a simple message can be a step toward expressing yourself, and I'm here to support you.";
+            setAiResponse(fallbackResponse);
+            onAiResponse?.(fallbackResponse);
+            onUserMessage?.(transcript);
+            
+            clearTranscript();
+            onNavigate("dialogue");
+          }
+        }
+        
+        setIsProcessingVoice(false);
+      }, 1000);
+    } else {
+      // Start recording
+      try {
+        await startRecording();
+      } catch (error) {
+        console.error('Error starting voice recording:', error);
+      }
+    }
   };
 
   return (
@@ -178,7 +256,8 @@ export function MainScreen({ onNavigate, onAiResponse, onUserMessage }: MainScre
               {todayQuestion}
             </p>
             
-            {/* Mood Selector   <div className="mt-4">
+            {/* Mood Selector - commented out as AI analyzes mood automatically
+            <div className="mt-4">
               <div className="flex items-center space-x-2 mb-2">
                 <Brain className="w-4 h-4 text-white/70" />
                 <p className="text-white/70 text-sm">AI will analyze your mood automatically</p>
@@ -201,7 +280,8 @@ export function MainScreen({ onNavigate, onAiResponse, onUserMessage }: MainScre
                 ))}
               </div>
               <p className="text-white/50 text-xs mt-1">Manual override (AI analysis preferred)</p>
-            </div> */}
+            </div>
+            */}
           
           </div>
         </Card>
@@ -210,36 +290,56 @@ export function MainScreen({ onNavigate, onAiResponse, onUserMessage }: MainScre
         <div className="space-y-4 mx-2">
           <Card className="reflecta-surface border-none reflecta-shadow">
             <div className="p-4">
-              {/*   : Textarea или VoiceRecorder */}
-              {!isRecording ? (
-                <Textarea
-                  placeholder="Share your thoughts..."
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  className="min-h-[120px] bg-transparent border-none text-white placeholder:text-[#A0AEC0] resize-none focus:ring-0 focus:ring-offset-0"
-                  style={{ fontSize: '16px' }}
-                />
-              ) : (
-                <>
-                  {/* AI Error Display */}
-                  {aiError && (
-                    <div className="p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg mb-4">
-                      <p className="text-yellow-200 text-sm">
-                        AI analysis failed, using manual mood selection
-                      </p>
+              {/* Textarea */}
+              <Textarea
+                placeholder="Share your thoughts..."
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                className="min-h-[120px] bg-transparent border-none text-white placeholder:text-[#A0AEC0] resize-none focus:ring-0 focus:ring-offset-0"
+                style={{ fontSize: '16px' }}
+              />
+              
+              {/* Voice recording indicator */}
+              {isRecording && (
+                <div className="mt-4 p-4 bg-white/10 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                      <span className="text-white/70 text-sm">Recording...</span>
+                    </div>
+                    <div className="text-white/50 text-sm font-mono">
+                      {formatDuration(duration)}
+                    </div>
+                  </div>
+                  {transcript && (
+                    <div className="mt-2 text-white/80 text-sm italic">
+                      "{transcript}"
                     </div>
                   )}
-                  
-                  <VoiceRecorder
-                    isRecording={isRecording}
-                    onStartRecording={handleStartRecording}
-                    onStopRecording={handleStopRecording}
-                  />
-                </>
+                </div>
               )}
 
-              {/* Icon Bar */}
-              {/* <div className="flex items-center space-x-4 pt-2">
+              {/* Voice processing indicator */}
+              {isProcessingVoice && (
+                <div className="mt-4 p-4 bg-yellow-500/20 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <Loader2 className="w-4 h-4 text-yellow-500 animate-spin" />
+                    <span className="text-white/70 text-sm">Processing voice...</span>
+                  </div>
+                </div>
+              )}
+
+              {/* AI Error Display */}
+              {aiError && (
+                <div className="mt-4 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
+                  <p className="text-yellow-200 text-sm">
+                    AI analysis failed, using manual mood selection
+                  </p>
+                </div>
+              )}
+
+              {/* Icon Bar - commented out
+              <div className="flex items-center space-x-4 pt-2">
                 <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
                   <Globe className="w-5 h-5 text-[#D1D5DB]" />
                 </button>
@@ -249,30 +349,50 @@ export function MainScreen({ onNavigate, onAiResponse, onUserMessage }: MainScre
                 <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
                   <Code className="w-5 h-5 text-[#D1D5DB]" />
                 </button>
-              </div> */}
+              </div>
+              */}
 
               <div className="flex items-center justify-between pt-4 border-t border-white/10">
                 <div className="flex items-center space-x-4">
-                  <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                    <Paperclip className="w-5 h-5 text-[#D1D5DB]" />
-                  </button>
+ 
                 </div>
                 
                 <div className="flex items-center space-x-3">
-                  <button
-                    onClick={toggleRecording}
-                    className={`w-12 h-12 rounded-full reflecta-shadow-sm transition-all ${
-                      isRecording 
-                        ? 'bg-red-500 text-white' 
-                        : 'bg-white text-[#1C2526] hover:bg-white/90'
-                    }`}
-                  >
-                    {isRecording ? (
-                      <StopCircle className="w-5 h-5 mx-auto" />
-                    ) : (
+                  {isVoiceSupported ? (
+                    <button
+                      onClick={handleVoiceRecording}
+                      disabled={isProcessingVoice || isProcessing}
+                      className={`w-12 h-12 rounded-full reflecta-shadow-sm transition-all ${
+                        isRecording 
+                          ? 'bg-red-500 text-white animate-pulse' 
+                          : isProcessingVoice || isProcessing
+                          ? 'bg-yellow-500 text-white'
+                          : 'bg-white text-[#1C2526] hover:bg-white/90'
+                      } disabled:opacity-50`}
+                        title={
+                          isRecording 
+                            ? `Recording... ${formatDuration(duration)}` 
+                            : isProcessingVoice || isProcessing
+                            ? 'Processing...'
+                            : 'Start voice recording'
+                        }
+                    >
+                      {isRecording ? (
+                        <MicOff className="w-5 h-5 mx-auto" />
+                      ) : isProcessingVoice || isProcessing ? (
+                        <Loader2 className="w-5 h-5 mx-auto animate-spin" />
+                      ) : (
+                        <Mic className="w-5 h-5 mx-auto" />
+                      )}
+                    </button>
+                  ) : (
+                    <div
+                      className="w-12 h-12 rounded-full bg-white/20 text-white/50 flex items-center justify-center cursor-not-allowed"
+                      title="Voice recording is not supported in your browser"
+                    >
                       <Mic className="w-5 h-5 mx-auto" />
-                    )}
-                  </button>
+                    </div>
+                  )}
                   
                   {message.trim() && !isRecording && (
                     <Button
