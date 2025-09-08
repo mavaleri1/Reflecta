@@ -302,17 +302,30 @@ export function MainScreen({ onNavigate, onAiResponse, onUserMessage }: MainScre
               {/* Voice recording indicator */}
               {isRecording && (
                 <div className="mt-4 p-4 bg-white/10 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                      <span className="text-white/70 text-sm">Recording...</span>
-                    </div>
-                    <div className="text-white/50 text-sm font-mono">
+                  <div className="flex items-center justify-center space-x-2 mb-3">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                    <div className="text-white/70 text-sm font-mono">
                       {formatDuration(duration)}
                     </div>
                   </div>
+                  
+                  {/* Audio visualizer bars */}
+                  <div className="w-full h-12 flex items-center justify-center gap-1 px-4">
+                    {[...Array(20)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="w-1 rounded-full bg-white"
+                        style={{
+                          height: `${Math.max(20, Math.random() * 100)}%`,
+                          animation: `pulse ${0.3 + Math.random() * 0.4}s ease-in-out infinite`,
+                          animationDelay: `${i * 0.1}s`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                  
                   {transcript && (
-                    <div className="mt-2 text-white/80 text-sm italic">
+                    <div className="mt-3 text-white/80 text-sm italic">
                       "{transcript}"
                     </div>
                   )}
