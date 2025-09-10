@@ -223,7 +223,7 @@ export function MainScreen({ onNavigate, onAiResponse, onUserMessage }: MainScre
 
   return (
     <div className="reflecta-gradient min-h-screen bg-[rgba(135,206,235,0)] rounded-[111px]">
-      <div className="px-4 py-6 space-y-6 bg-[rgba(135,206,235,1)] rounded-[12px]">
+      <div className="px-4 py-8 space-y-4 bg-[rgba(135,206,235,1)] rounded-[12px]">
         {/* Header */}
         <div className="text-center pt-4">
           <h2 className="text-white text-xl mb-2">Evening Reflection</h2>
@@ -287,7 +287,7 @@ export function MainScreen({ onNavigate, onAiResponse, onUserMessage }: MainScre
         </Card>
 
         {/* Input Area */}
-        <div className="space-y-4 mx-2">
+        <div className="space-y-3 mx-2">
           <Card className="reflecta-surface border-none reflecta-shadow">
             <div className="p-4">
               {/* Textarea */}
@@ -439,7 +439,7 @@ export function MainScreen({ onNavigate, onAiResponse, onUserMessage }: MainScre
         </div>
 
         {/* Quick Actions */}
-        <div className="mx-2 space-y-3">
+        <div className="mx-2 space-y-2 -mb-2">
           <p className="text-white/70 text-sm px-2">Quick actions</p>
           <div className="grid grid-cols-2 gap-3">
             <Button

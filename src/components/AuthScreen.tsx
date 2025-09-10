@@ -72,8 +72,8 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         />
       </div>
       
-      <div className="reflecta-gradient min-h-screen flex items-center justify-center p-4">
-        <Card className="w-full max-w-md reflecta-surface border-none reflecta-shadow">
+      <div className="reflecta-gradient min-h-screen flex items-center justify-center p-4 bg-[rgba(135,206,235,1)] rounded-[12px]">
+        <Card className="w-full max-w-md bg-transparent border-none">
           <div className="p-8">
             <div className="text-center mb-8">
               <h1 className="text-2xl font-bold text-white mb-2">Reflecta</h1>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
@@ -47,6 +47,21 @@ export function DialogueScreen({ onBack, aiResponse, userMessage }: DialogueScre
   const [addedUserMessage, setAddedUserMessage] = useState<string | null>(null);
   const [addedAiResponse, setAddedAiResponse] = useState<string | null>(null);
   const [isAddingMessage, setIsAddingMessage] = useState(false);
+  
+  // Ref for messages container to enable auto-scroll
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Function to scroll to bottom
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+  
+  // Auto-scroll when messages change
+  useEffect(() => {
+    if (isLoaded && messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages, isLoaded]);
   
   React.useEffect(() => {
     const addMessages = async () => {
@@ -115,6 +130,9 @@ export function DialogueScreen({ onBack, aiResponse, userMessage }: DialogueScre
           
           // Add AI response to chat history
           await addAIMessage(aiResult.response);
+          
+          // Scroll to bottom after adding AI response
+          setTimeout(scrollToBottom, 100);
         } else {
           console.log('⚠️ DialogueScreen: AI analysis failed, using fallback');
           // Fallback: save with neutral mood
@@ -123,6 +141,9 @@ export function DialogueScreen({ onBack, aiResponse, userMessage }: DialogueScre
           // Add fallback AI response
           const fallbackResponse = "I'm here to listen whenever you're ready to share. Even a simple message can be a step toward expressing yourself, and I'm here to support you.";
           await addAIMessage(fallbackResponse);
+          
+          // Scroll to bottom after adding fallback response
+          setTimeout(scrollToBottom, 100);
         }
       } catch (error) {
         console.error('❌ DialogueScreen: Error processing message:', error);
@@ -133,6 +154,9 @@ export function DialogueScreen({ onBack, aiResponse, userMessage }: DialogueScre
         // Add fallback AI response
         const fallbackResponse = "I'm here to listen whenever you're ready to share. Even a simple message can be a step toward expressing yourself, and I'm here to support you.";
         await addAIMessage(fallbackResponse);
+        
+        // Scroll to bottom after adding fallback response
+        setTimeout(scrollToBottom, 100);
       } finally {
         setIsSending(false);
       }
@@ -234,7 +258,7 @@ export function DialogueScreen({ onBack, aiResponse, userMessage }: DialogueScre
   };
 
   return (
-    <div className="reflecta-gradient min-h-screen flex flex-col">
+    <div className="reflecta-gradient min-h-screen flex flex-col pb-safe">
       {/* Notification of voice input error */}
       {showVoiceError && voiceError && (
         <div className="px-4 py-2 bg-red-500/20 border-b border-red-500/30">
@@ -297,7 +321,7 @@ export function DialogueScreen({ onBack, aiResponse, userMessage }: DialogueScre
       </div>
 
       {/* Messages */}
-      <div className="flex-1 px-4 py-4 space-y-4 overflow-y-auto bg-[rgba(135,206,235,0)] rounded-[1px]">
+      <div className="flex-1 px-4 py-4 space-y-4 overflow-y-auto bg-[rgba(135,206,235,0)] rounded-[1px] min-h-0 max-h-[calc(100vh-200px)]">
         {!isLoaded ? (
           <div className="flex justify-center items-center h-full">
             <div className="text-white/70">Loading chat history...</div>
@@ -430,13 +454,15 @@ export function DialogueScreen({ onBack, aiResponse, userMessage }: DialogueScre
             </div>
           </div>
         ))}
+            {/* Invisible element for auto-scroll */}
+            <div ref={messagesEndRef} />
           </>
         )}
       </div>
 
       {/* Input Area */}
-      <div className="px-4 py-4 border-t border-white/10 bg-[rgba(135,206,235,0)] rounded-[1px]">
-        <Card className="reflecta-surface border-none reflecta-shadow">
+      <div className="px-4 py-4 border-t border-white/10 bg-[rgba(135,206,235,0.1)] rounded-[1px] sticky bottom-0 z-10">
+        <Card className="bg-white/10 border-white/20 reflecta-shadow">
           <div className="p-3">
             <div className="flex items-end space-x-3">
               <div className="flex-1">
@@ -445,7 +471,7 @@ export function DialogueScreen({ onBack, aiResponse, userMessage }: DialogueScre
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  className="bg-transparent border-none text-white placeholder:text-[#A0AEC0] focus:ring-0 focus:ring-offset-0"
+                  className="bg-white/5 border-white/30 text-white placeholder:text-white/60 focus:ring-2 focus:ring-white/30 focus:ring-offset-0 focus:border-white/50"
                   style={{ fontSize: '16px' }}
                 />
               </div>
